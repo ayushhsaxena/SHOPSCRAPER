@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Results</title>
+
+<link rel="stylesheet"
+href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Results for "{{ query }}"</h1>
+
+{% if deals %}
+
+{% for deal in deals %}
+
+<div class="card">
+
+<h3>{{ deal.title }}</h3>
+
+<p><strong>Price:</strong> {{ deal.price }}</p>
+
+<a href="{{ deal.link }}"
+target="_blank">
+
+View Product
+
+</a>
+
+</div>
+
+{% endfor %}
+
+{% else %}
+
+<h3>No Products Found</h3>
+
+{% endif %}
+
+<a href="/">← Search Again</a>
+
+</div>
+
+</body>
+
+</html>
