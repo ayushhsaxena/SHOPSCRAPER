@@ -1,44 +1,77 @@
-# A web scraper bot is an automated program that extracts information from websites. It visits web pages, reads their content (such as text, images, or data tables), and collects specific data based on predefined rules. Web scraper bots are commonly used for tasks like data analysis, price comparison, research, monitoring website updates, and gathering large datasets efficiently without manual effort. They help save time and enable structured data collection from unstructured web content.
-# This Python script implements a simple web scraper bot that searches for products on Amazon based on a given keyword (e.g., laptop). It uses the requests library to send an HTTP request with browser-like headers and BeautifulSoup to parse the HTML content of the search results page.
-# The bot extracts key product details such as title, price, and product link from each search result and stores them in a structured list. Finally, it prints the collected deals in a readable format, enabling quick comparison of products and prices.
-import requests 
+import requests
 from bs4 import BeautifulSoup
+from urllib.parse import quote_plus
+
+BASE_URL = "https://www.amazon.com"
+
+session = requests.Session()
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/137.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
 def deal_find(search_query):
-    url = f"https://www.amazon.com/s?k={search_query}&ref=nb_sb_noss"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
-    }
+    url = f"{BASE_URL}/s?k={quote_plus(search_query)}"
 
     try:
-        response = requests.get(url, headers=headers)
+        response = session.get(
+            url,
+            headers=HEADERS,
+            timeout=10
+        )
         response.raise_for_status()
+
     except requests.RequestException as e:
-        print("Error fetching:", e)
+        print(f"Request failed: {e}")
         return []
 
-    soup = BeautifulSoup(response.content, "html.parser")
+    soup = BeautifulSoup(response.text, "lxml")
 
     offers = []
-    products = soup.select("div[data-component-type='s-search-result']")
+    seen = set()
 
-    for prod in products:
-        title_elem = prod.select_one(".a-size-medium")
-        price_elem = prod.select_one(".a-offscreen")
-        link_elem = prod.select_one("a.a-link-normal")
+    for product in soup.select("div[data-component-type='s-search-result']"):
 
-        if title_elem and price_elem and link_elem:
-            title = title_elem.get_text(strip=True)
-            price = price_elem.get_text(strip=True)
-            link = "https://www.amazon.com" + link_elem.get("href", "")
-            offers.append({"title": title, "price": price, "link": link})
+        title = product.select_one("h2 span")
+        price = product.select_one("span.a-price span.a-offscreen")
+        link = product.select_one("h2 a")
 
-    return deals
+        if not (title and price and link):
+            continue
 
-search_query = "laptop"
-offers = deal_find(search_query)
+        product_link = BASE_URL + link["href"]
 
-for deal in offers:
-    print("Title:", deal["title"])
-    print("Price:", deal["price"])
-    print("Link:", deal["link"])
-    print()
+        if product_link in seen:
+            continue
+
+        seen.add(product_link)
+
+        offers.append({
+            "title": title.get_text(strip=True),
+            "price": price.get_text(strip=True),
+            "link": product_link
+        })
+
+    return offers
+
+
+if __name__ == "__main__":
+    query = input("Search Product: ")
+
+    deals = deal_find(query)
+
+    if not deals:
+        print("No products found.")
+    else:
+        for i, deal in enumerate(deals, 1):
+            print(f"\nProduct {i}")
+            print("-" * 60)
+            print("Title :", deal["title"])
+            print("Price :", deal["price"])
+            print("Link  :", deal["link"])
